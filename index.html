@@ -44,6 +44,52 @@
     <div class="session-info">Transaction Ref: TXN_<span id="succ-txn"></span></div>
   </div>
 
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart RVM - Payout Gateway</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #f4f7f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+    .card { background: #ffffff; padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); width: 100%; max-width: 400px; text-align: center; }
+    .badge { background: #e6f4ea; color: #137333; font-weight: 600; font-size: 14px; padding: 6px 12px; border-radius: 20px; display: inline-block; margin-bottom: 12px; }
+    .amount { font-size: 36px; font-weight: 700; color: #1a73e8; margin: 10px 0; }
+    .session-info { font-size: 12px; color: #70757a; margin-bottom: 24px; }
+    .input-group { margin-bottom: 20px; text-align: left; }
+    label { font-size: 14px; font-weight: 600; color: #3c4043; display: block; margin-bottom: 6px; }
+    input { width: 100%; padding: 12px; border: 1px solid #dadce0; border-radius: 8px; font-size: 16px; outline: none; }
+    input:focus { border-color: #1a73e8; }
+    button { width: 100%; background: #1a73e8; color: white; border: none; padding: 14px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    button:hover { background: #1557b0; }
+    .success-screen { display: none; }
+    .icon { font-size: 48px; color: #34a853; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+
+  <div class="card" id="claim-card">
+    <div class="badge">♻️ RVM Recycling Payout</div>
+    <div class="amount" id="disp-amount">₹0.00</div>
+    <div class="session-info">Session ID: #<span id="disp-id">----</span></div>
+
+    <form id="payout-form">
+      <div class="input-group">
+        <label for="upi-id">Enter your UPI ID / Phone Number</label>
+        <input type="text" id="upi-id" placeholder="e.g. user@upi or 9876543210" required />
+      </div>
+      <button type="submit">Claim Payout Now</button>
+    </form>
+  </div>
+
+  <div class="card success-screen" id="success-card">
+    <div class="icon">✓</div>
+    <h2>Payout Successful!</h2>
+    <p>We've transferred <strong id="succ-amount">₹0.00</strong> to <span id="succ-upi"></span>.</p>
+    <div class="session-info">Transaction Ref: TXN_<span id="succ-txn"></span></div>
+  </div>
+
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('id');
@@ -77,11 +123,17 @@
         btn.innerText = "Processing Transfer...";
         btn.disabled = true;
 
-        // Signal cloud store that the session is claimed
-        fetch(`https://kvdb.io/4yK82tLwX6yR83tPqZ1M9X/rvm_${sessionId}`, {
+        // Guaranteed cloud ping via HTTP Bin
+        fetch(`https://httpbin.org/anything?rvm_session=${sessionId}&status=REDEEMED`, {
+          method: 'GET',
+          mode: 'no-cors'
+        });
+
+        // Backup KV store ping
+        fetch(`https://api.keyvalue.xyz/rvm_${sessionId}/status`, {
           method: 'POST',
           body: 'REDEEMED'
-        }).catch(err => console.log('Sync ping sent'));
+        }).catch(err => console.log(err));
 
         setTimeout(() => {
           redeemedSessions.push(sessionId);
@@ -93,7 +145,7 @@
           document.getElementById('succ-amount').innerText = '₹' + amount;
           document.getElementById('succ-upi').innerText = upiId;
           document.getElementById('succ-txn').innerText = Math.floor(100000 + Math.random() * 900000);
-        }, 1200);
+        }, 1000);
       });
     }
   </script>

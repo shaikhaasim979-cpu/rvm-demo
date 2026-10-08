@@ -83,7 +83,7 @@
 
         try {
           // Call local Node.js Payout backend
-          const response = await fetch('http://localhost:3000/api/claim-payout', {
+          const response = await fetch('https://rvm-blond.vercel.app/api/claim-payout', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

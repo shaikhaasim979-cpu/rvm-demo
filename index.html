@@ -17,8 +17,10 @@
     input:focus { border-color: #1a73e8; }
     button { width: 100%; background: #1a73e8; color: white; border: none; padding: 14px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
     button:hover { background: #1557b0; }
+    button:disabled { background: #a0c3ff; cursor: not-allowed; }
     .hidden { display: none !important; }
     .icon { font-size: 48px; color: #34a853; margin-bottom: 10px; }
+    .error-msg { color: #d93025; font-size: 14px; margin-top: 12px; }
   </style>
 </head>
 <body>
@@ -34,6 +36,7 @@
         <input type="text" id="upi-id" placeholder="e.g. user@upi or 9876543210" required />
       </div>
       <button type="submit" id="submit-btn">Claim Payout Now</button>
+      <div id="error-box" class="error-msg hidden"></div>
     </form>
   </div>
 
@@ -41,7 +44,7 @@
     <div class="icon">✓</div>
     <h2>Payout Successful!</h2>
     <p>We've transferred <strong id="succ-amount">₹0.00</strong> to <span id="succ-upi"></span>.</p>
-    <div class="session-info">Transaction Ref: TXN_<span id="succ-txn"></span></div>
+    <div class="session-info">Transaction Ref: <span id="succ-txn"></span></div>
   </div>
 
   <script>
@@ -68,27 +71,54 @@
       document.getElementById('disp-amount').innerText = '₹' + amount;
       document.getElementById('disp-id').innerText = sessionId;
 
-      document.getElementById('payout-form').addEventListener('submit', function(e) {
+      document.getElementById('payout-form').addEventListener('submit', async function(e) {
         e.preventDefault();
         const upiId = document.getElementById('upi-id').value;
         const btn = document.getElementById('submit-btn');
+        const errBox = document.getElementById('error-box');
+
         btn.innerText = "Processing Transfer...";
         btn.disabled = true;
+        errBox.classList.add('hidden');
 
-        // Force browser image beacon (bypasses CORS restrictions completely)
-        const img = new Image();
-        img.src = `https://kvdb.io/4yK82tLwX6yR83tPqZ1M9X/rvm_${sessionId}?claim=true&t=` + Date.now();
+        try {
+          // Call local Node.js Payout backend
+          const response = await fetch('http://localhost:3000/api/claim-payout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId: sessionId,
+              amount: amount,
+              upiId: upiId
+            })
+          });
 
-        redeemedSessions.push(sessionId);
-        localStorage.setItem('rvm_claimed_sessions', JSON.stringify(redeemedSessions));
+          const data = await response.json();
 
-        setTimeout(() => {
-          document.getElementById('claim-card').classList.add('hidden');
-          document.getElementById('success-card').classList.remove('hidden');
-          document.getElementById('succ-amount').innerText = '₹' + amount;
-          document.getElementById('succ-upi').innerText = upiId;
-          document.getElementById('succ-txn').innerText = Math.floor(100000 + Math.random() * 900000);
-        }, 800);
+          if (data.success) {
+            // Store redeemed session locally to block duplicate attempts
+            redeemedSessions.push(sessionId);
+            localStorage.setItem('rvm_claimed_sessions', JSON.stringify(redeemedSessions));
+
+            // Show Success Card
+            document.getElementById('claim-card').classList.add('hidden');
+            document.getElementById('success-card').classList.remove('hidden');
+            document.getElementById('succ-amount').innerText = '₹' + amount;
+            document.getElementById('succ-upi').innerText = upiId;
+            document.getElementById('succ-txn').innerText = data.payoutId;
+          } else {
+            errBox.innerText = data.error || "Payout request failed.";
+            errBox.classList.remove('hidden');
+            btn.innerText = "Claim Payout Now";
+            btn.disabled = false;
+          }
+        } catch (error) {
+          console.error("Backend Server Error:", error);
+          errBox.innerText = "Unable to connect to payout server. Make sure 'node server.js' is running.";
+          errBox.classList.remove('hidden');
+          btn.innerText = "Claim Payout Now";
+          btn.disabled = false;
+        }
       });
     }
   </script>

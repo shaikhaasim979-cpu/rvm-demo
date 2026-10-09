@@ -32,8 +32,8 @@
 
     <form id="payout-form">
       <div class="input-group">
-        <label for="upi-id">Enter your UPI ID / Phone Number</label>
-        <input type="text" id="upi-id" placeholder="e.g. user@upi or 9876543210" required />
+        <label for="upi-id">Enter your UPI ID</label>
+        <input type="text" id="upi-id" placeholder="e.g. username@okicici or 9876543210@ybl" required />
       </div>
       <button type="submit" id="submit-btn">Claim Payout Now</button>
       <div id="error-box" class="error-msg hidden"></div>
@@ -73,9 +73,17 @@
 
       document.getElementById('payout-form').addEventListener('submit', async function(e) {
         e.preventDefault();
-        const upiId = document.getElementById('upi-id').value;
+        const upiId = document.getElementById('upi-id').value.trim();
         const btn = document.getElementById('submit-btn');
         const errBox = document.getElementById('error-box');
+
+        // Regex check for strict UPI ID format (e.g. name@bank or phone@upi)
+        const upiRegex = /^[\w.-]+@[\w.-]+$/;
+        if (!upiRegex.test(upiId)) {
+          errBox.innerText = "Please enter a valid UPI ID (e.g., username@okicici or 9876543210@ybl).";
+          errBox.classList.remove('hidden');
+          return; // Prevents processing and stops API call
+        }
 
         btn.innerText = "Processing Transfer...";
         btn.disabled = true;

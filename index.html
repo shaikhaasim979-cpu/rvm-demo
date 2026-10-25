@@ -77,8 +77,8 @@
         const btn = document.getElementById('submit-btn');
         const errBox = document.getElementById('error-box');
 
-        // Regex check for strict UPI ID format (e.g. name@bank or phone@upi)
-        const upiRegex = /^[\w.-]+@[\w.-]+$/;
+        // Regex check supporting hyphens, numbers, dots, and letters
+        const upiRegex = /^[a-zA-Z0-9.-]+@[a-zA-Z0-9.-]+$/;
         if (!upiRegex.test(upiId)) {
           errBox.innerText = "Please enter a valid UPI ID (e.g., username@okicici or 9876543210@ybl).";
           errBox.classList.remove('hidden');
@@ -93,7 +93,10 @@
           // Call live Vercel Payout backend
           const response = await fetch('https://rvm-73um.vercel.app/api/claim-payout', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            mode: 'cors',
+            headers: { 
+              'Content-Type': 'application/json' 
+            },
             body: JSON.stringify({
               sessionId: sessionId,
               amount: amount,
@@ -108,14 +111,18 @@
             redeemedSessions.push(sessionId);
             localStorage.setItem('rvm_claimed_sessions', JSON.stringify(redeemedSessions));
 
+            // Extract transfer ID cleanly from Cashfree response structure
+            const txnRef = data.payoutId || (data.data && data.data.transfer_id) || `TXN_${Date.now()}`;
+
             // Show Success Card
             document.getElementById('claim-card').classList.add('hidden');
             document.getElementById('success-card').classList.remove('hidden');
             document.getElementById('succ-amount').innerText = '₹' + amount;
             document.getElementById('succ-upi').innerText = upiId;
-            document.getElementById('succ-txn').innerText = data.payoutId;
+            document.getElementById('succ-txn').innerText = txnRef;
           } else {
-            errBox.innerText = data.error || "Payout request failed.";
+            const errorDetails = typeof data.error === 'object' ? (data.error.message || JSON.stringify(data.error)) : (data.error || "Payout request failed.");
+            errBox.innerText = errorDetails;
             errBox.classList.remove('hidden');
             btn.innerText = "Claim Payout Now";
             btn.disabled = false;
